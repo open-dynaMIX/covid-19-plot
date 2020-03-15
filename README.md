@@ -32,10 +32,10 @@ pip install matplotlib
 ## Usage
 
 ```
-usage: covid_19_plot.py [-h] [-l] [-c] [-d] [-r] [-a] [--list-countries] [countries/regions [countries/regions ...]]
+usage: covid_19_plot.py [-h] [-l] [-c] [-d] [-r] [-a] [--split-by-state] [--list-countries] [countries [countries ...]]
 
 positional arguments:
-  countries/regions  List of countries/regions (defaults to Switzerland)
+  countries          List of countries/regions (defaults to Switzerland)
 
 optional arguments:
   -h, --help         show this help message and exit
@@ -44,6 +44,7 @@ optional arguments:
   -d, --deaths       include deaths
   -r, --recovered    include recovered
   -a, --all          include all
+  --split-by-state   show graph for each province/state
   --list-countries   list available countries/regions
 ```
 

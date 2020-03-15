@@ -46,6 +46,11 @@ def parse_arguments(args):
     )
     parser.add_argument("-a", "--all", action="store_true", help="include all")
     parser.add_argument(
+        "--split-by-state",
+        action="store_true",
+        help="show graph for each province/state",
+    )
+    parser.add_argument(
         "--list-countries", action="store_true", help="list available countries/regions"
     )
     args = parser.parse_args(args)
@@ -65,31 +70,33 @@ def handle_row(row, data):
     return confirmed, deaths, recovered
 
 
-def collect_data_from_file(file, countries):
-    data_found = False
+def collect_data_from_file(file, countries, split_by_state):
     data = {}
     with open(file) as csvfile:
         reader = csv.DictReader(csvfile)
         for row in reader:
-            if row["Country/Region"].strip() in countries:
+            area = row["Country/Region"].strip()
+            if area in countries:
                 confirmed, deaths, recovered = handle_row(row, data)
                 if confirmed == deaths == recovered == 0:
                     continue
-                data_found = True
-                if row["Country/Region"] not in data:
-                    data[row["Country/Region"]] = {
+                if split_by_state:
+                    state = row.get("Province/State", row.get("\ufeffProvince/State"))
+                    area = f'{row["Country/Region"].strip()} - {state}'
+                if area not in data:
+                    data[area] = {
                         "confirmed": 0,
                         "deaths": 0,
                         "recovered": 0,
                     }
-                data[row["Country/Region"]]["confirmed"] += confirmed
-                data[row["Country/Region"]]["deaths"] += deaths
-                data[row["Country/Region"]]["recovered"] += recovered
+                data[area]["confirmed"] += confirmed
+                data[area]["deaths"] += deaths
+                data[area]["recovered"] += recovered
 
-    return data if data_found else False
+    return data
 
 
-def get_data(countries):
+def get_data(countries, split_by_state):
     """
     Collects data from CSVs
 
@@ -111,37 +118,30 @@ def get_data(countries):
             return lst[-1]
         return 0
 
-    data = {
-        country: {"confirmed": [], "deaths": [], "recovered": []}
-        for country in countries
-    }
+    data = {}
     meta = {"dates": []}
 
     os.chdir(f"{DIR_PATH}/COVID-19/csse_covid_19_data/csse_covid_19_daily_reports")
 
     for file in sorted(glob.glob("*.csv")):
         date = datetime.strptime(file, "%m-%d-%Y.csv").date()
-        sub_data = collect_data_from_file(file, countries)
+        sub_data = collect_data_from_file(file, countries, split_by_state)
 
-        if sub_data is False and len(data[countries[0]]["confirmed"]) == 0:
+        if not sub_data and not data:
             continue
-        for country in countries:
-            if sub_data and country in sub_data:
-                data[country]["confirmed"].append(sub_data[country]["confirmed"])
-                data[country]["deaths"].append(sub_data[country]["deaths"])
-                data[country]["recovered"].append(sub_data[country]["recovered"])
-            else:
-                data[country]["confirmed"].append(
-                    last_item_or_zero(data[country]["confirmed"])
-                )
+        for area in sub_data:
+            if area not in data:
+                data[area] = {
+                    "confirmed": [],
+                    "deaths": [],
+                    "recovered": [],
+                    "dates": [],
+                }
+            data[area]["confirmed"].append(sub_data[area]["confirmed"])
+            data[area]["deaths"].append(sub_data[area]["deaths"])
+            data[area]["recovered"].append(sub_data[area]["recovered"])
+            data[area]["dates"].append(date)
 
-                data[country]["deaths"].append(
-                    last_item_or_zero(data[country]["deaths"])
-                )
-
-                data[country]["recovered"].append(
-                    last_item_or_zero(data[country]["recovered"])
-                )
         meta["dates"].append(date)
     return data, meta
 
@@ -194,35 +194,35 @@ def plot(data, meta, args):
 
     legend = []
     plots = []
-    for country in args.countries:
+    for area, area_data in data.items():
         color = None
         if args.confirmed:
-            plots.append(plt.plot(x, data[country]["confirmed"]))
+            plots.append(plt.plot(area_data["dates"], area_data["confirmed"]))
             color = plots[-1][0].get_color()
-            legend.append(f"{country} - confirmed")
+            legend.append(f"{area} - confirmed")
 
         if args.deaths:
             plots.append(
                 plt.plot(
-                    x,
-                    data[country]["deaths"],
+                    area_data["dates"],
+                    area_data["deaths"],
                     color=color if color else None,
                     linestyle="dashed",
                 )
             )
             color = plots[-1][0].get_color()
-            legend.append(f"{country} - deaths")
+            legend.append(f"{area} - deaths")
 
         if args.recovered:
             plots.append(
                 plt.plot(
-                    x,
-                    data[country]["recovered"],
+                    area_data["dates"],
+                    area_data["recovered"],
                     color=color if color else None,
                     linestyle="dotted",
                 )
             )
-            legend.append(f"{country} - recovered")
+            legend.append(f"{area} - recovered")
 
     y_ticks(args)
 
@@ -238,10 +238,13 @@ def main():
         print("\n".join(get_countries()))
         sys.exit(0)
 
-    data, meta = get_data(args.countries)
+    data, meta = get_data(args.countries, args.split_by_state)
 
     plot(data, meta, args)
-    plt.show()
+    try:
+        plt.show()
+    except KeyboardInterrupt:
+        pass
 
 
 if __name__ == "__main__":  # pragma: no cover
