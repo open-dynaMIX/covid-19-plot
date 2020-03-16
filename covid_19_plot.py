@@ -2,15 +2,21 @@
 
 
 import argparse
+import csv
+import datetime
+import glob
+import os
 import sys
+
 import matplotlib.pyplot as plt
 import numpy as np
-import csv
-import glob, os
-from datetime import datetime
-
 
 DIR_PATH = os.path.dirname(os.path.realpath(__file__))
+CSV_PATHS = {
+    "confirmed": f"{DIR_PATH}/COVID-19/csse_covid_19_data/csse_covid_19_time_series/time_series_19-covid-Confirmed.csv",
+    "deaths": f"{DIR_PATH}/COVID-19/csse_covid_19_data/csse_covid_19_time_series/time_series_19-covid-Deaths.csv",
+    "recovered": f"{DIR_PATH}/COVID-19/csse_covid_19_data/csse_covid_19_time_series/time_series_19-covid-Recovered.csv",
+}
 
 
 def group(number):
@@ -20,6 +26,14 @@ def group(number):
         groups.append(s[-3:])
         s = s[:-3]
     return s + "'".join(reversed(groups))
+
+
+def valid_date(s):
+    try:
+        return datetime.datetime.strptime(s, "%Y-%m-%d").date()
+    except ValueError:
+        msg = "Not a valid date: '{0}'.".format(s)
+        raise argparse.ArgumentTypeError(msg)
 
 
 def parse_arguments(args):
@@ -46,6 +60,12 @@ def parse_arguments(args):
     )
     parser.add_argument("-a", "--all", action="store_true", help="include all")
     parser.add_argument(
+        "-s",
+        "--startdate",
+        help="plot data past given date - format YYYY-MM-DD",
+        type=valid_date,
+    )
+    parser.add_argument(
         "--split-by-state",
         action="store_true",
         help="show graph for each province/state",
@@ -63,40 +83,40 @@ def parse_arguments(args):
     return args
 
 
-def handle_row(row, data):
-    confirmed = int(row["Confirmed"]) if row["Confirmed"] else 0
-    deaths = int(row["Deaths"]) if row["Deaths"] else 0
-    recovered = int(row["Recovered"]) if row["Recovered"] else 0
-    return confirmed, deaths, recovered
-
-
-def collect_data_from_file(file, countries, split_by_state):
+def get_data_from_file(file, countries, split_by_state, startdate):
     data = {}
     with open(file) as csvfile:
         reader = csv.DictReader(csvfile)
         for row in reader:
             area = row["Country/Region"].strip()
             if area in countries:
-                confirmed, deaths, recovered = handle_row(row, data)
-                if confirmed == deaths == recovered == 0:
-                    continue
+                state = row.pop("Province/State").strip()
+                country = row.pop("Country/Region").strip()
+                row.pop("Lat")
+                row.pop("Long")
+                x = []
+                y = []
+                for date, count in row.items():
+                    # can't use strptime with non-padded month
+                    month, day, year = date.split("/")
+                    date = datetime.date(int(f"20{year}"), int(month), int(day))
+                    if startdate and date < startdate:
+                        continue
+                    x.append(date)
+                    y.append(int(count))
                 if split_by_state:
-                    state = row.get("Province/State", row.get("\ufeffProvince/State"))
-                    area = f'{row["Country/Region"].strip()} - {state}'
+                    area = f"{country} - {state}"
                 if area not in data:
-                    data[area] = {
-                        "confirmed": 0,
-                        "deaths": 0,
-                        "recovered": 0,
-                    }
-                data[area]["confirmed"] += confirmed
-                data[area]["deaths"] += deaths
-                data[area]["recovered"] += recovered
-
+                    data[area] = {}
+                if not data[area] or split_by_state:
+                    data[area] = {"x": x, "y": y}
+                    continue
+                for ct, i in enumerate(y):
+                    data[area]["y"][ct] += i
     return data
 
 
-def get_data(countries, split_by_state):
+def get_data(countries, args):
     """
     Collects data from CSVs
 
@@ -113,37 +133,33 @@ def get_data(countries, split_by_state):
 
     """
 
-    def last_item_or_zero(lst):
-        if len(lst):
-            return lst[-1]
-        return 0
+    def add_to_data(sdata, key):
+        for area, d in sdata.items():
+            if area not in data:
+                data[area] = {}
+            data[area][key] = sdata[area]
 
     data = {}
-    meta = {"dates": []}
 
-    os.chdir(f"{DIR_PATH}/COVID-19/csse_covid_19_data/csse_covid_19_daily_reports")
+    if args.confirmed:
+        sub_data = get_data_from_file(
+            CSV_PATHS["confirmed"], countries, args.split_by_state, args.startdate
+        )
+        add_to_data(sub_data, "confirmed")
 
-    for file in sorted(glob.glob("*.csv")):
-        date = datetime.strptime(file, "%m-%d-%Y.csv").date()
-        sub_data = collect_data_from_file(file, countries, split_by_state)
+    if args.deaths:
+        sub_data = get_data_from_file(
+            CSV_PATHS["deaths"], countries, args.split_by_state, args.startdate
+        )
+        add_to_data(sub_data, "deaths")
 
-        if not sub_data and not data:
-            continue
-        for area in sub_data:
-            if area not in data:
-                data[area] = {
-                    "confirmed": [],
-                    "deaths": [],
-                    "recovered": [],
-                    "dates": [],
-                }
-            data[area]["confirmed"].append(sub_data[area]["confirmed"])
-            data[area]["deaths"].append(sub_data[area]["deaths"])
-            data[area]["recovered"].append(sub_data[area]["recovered"])
-            data[area]["dates"].append(date)
+    if args.recovered:
+        sub_data = get_data_from_file(
+            CSV_PATHS["recovered"], countries, args.split_by_state, args.startdate
+        )
+        add_to_data(sub_data, "recovered")
 
-        meta["dates"].append(date)
-    return data, meta
+    return data
 
 
 def get_countries():
@@ -176,8 +192,8 @@ def setup_plot(args):
     plt.ylabel("Cases", fontdict=font)
 
 
-def plot(data, meta, args):
-    def y_ticks(args):
+def plot(data, args):
+    def y_ticks():
         yticks = plt.yticks()
         new_diff = (yticks[0][1] - yticks[0][0]) / 4
         if not args.logarithmic:
@@ -189,42 +205,26 @@ def plot(data, meta, args):
 
     setup_plot(args)
 
-    x = meta["dates"]
+    first_key = next(iter(data))
+    second_key = next(iter(data[first_key]))
+    x = data[first_key][second_key]["x"]
     plt.xticks(x, labels=[date.strftime("%Y-%m-%d") for date in x], rotation=70)
 
     legend = []
     plots = []
+    linestyle = {"confirmed": "solid", "deaths": "dashed", "recovered": "dotted"}
     for area, area_data in data.items():
         color = None
-        if args.confirmed:
-            plots.append(plt.plot(area_data["dates"], area_data["confirmed"]))
-            color = plots[-1][0].get_color()
-            legend.append(f"{area} - confirmed")
-
-        if args.deaths:
+        for category, data in area_data.items():
             plots.append(
                 plt.plot(
-                    area_data["dates"],
-                    area_data["deaths"],
-                    color=color if color else None,
-                    linestyle="dashed",
+                    data["x"], data["y"], color=color, linestyle=linestyle[category],
                 )
             )
             color = plots[-1][0].get_color()
-            legend.append(f"{area} - deaths")
+            legend.append(f"{area} - {category}")
 
-        if args.recovered:
-            plots.append(
-                plt.plot(
-                    area_data["dates"],
-                    area_data["recovered"],
-                    color=color if color else None,
-                    linestyle="dotted",
-                )
-            )
-            legend.append(f"{area} - recovered")
-
-    y_ticks(args)
+    y_ticks()
 
     plt.grid()
     plt.legend(legend)
@@ -238,9 +238,9 @@ def main():
         print("\n".join(get_countries()))
         sys.exit(0)
 
-    data, meta = get_data(args.countries, args.split_by_state)
+    data = get_data(args.countries, args)
 
-    plot(data, meta, args)
+    plot(data, args)
     try:
         plt.show()
     except KeyboardInterrupt:
