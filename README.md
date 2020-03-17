@@ -41,7 +41,7 @@ pip install PyQt5
 ## Usage
 
 ```
-usage: covid_19_plot.py [-h] [-l] [-c] [-d] [-r] [-a] [-s STARTDATE] [--no-annotate] [--split-by-state] [--list-countries] [countries [countries ...]]
+usage: covid_19_plot.py [-h] [-l] [-c] [-d] [-r] [-a] [-s STARTDATE] [-m] [--annotate] [--split-by-state] [--list-countries] [countries [countries ...]]
 
 positional arguments:
   countries             List of countries/regions (defaults to Switzerland)
@@ -55,14 +55,41 @@ optional arguments:
   -a, --all             include all
   -s STARTDATE, --startdate STARTDATE
                         plot data past given date - format YYYY-MM-DD
-  --no-annotate         disable annotation of data points
+  -m, --compare         match x-axis of multiple countries (matches by closest data point to 1000)
+  --annotate            add annotation to data points
   --split-by-state      show graph for each province/state
   --list-countries      list available countries/regions
 ```
 
-## Example screenshot
+## Examples
+
 ```shell
-./covid_19_plot.py -a --startdate 2020-02-20 Switzerland Italy Spain France US
+./covid_19_plot.py --all --startdate 2020-02-20 Switzerland Italy Spain France US
 ```
 
-![screenshot](screenshots/screen.png#1)
+![screenshot](screenshots/screen0.png)
+
+
+```shell
+./covid_19_plot.py --compare --startdate 2020-02-20 Italy Switzerland Austria Germany
+```
+
+![screenshot](screenshots/screen1.png)
+
+```shell
+./covid_19_plot.py --startdate 2020-02-20 --logarithmic Italy Switzerland Austria Germany US France Spain
+```
+
+![screenshot](screenshots/screen2.png)
+
+```shell
+./covid_19_plot.py --annotate --startdate 2020-02-20 Switzerland Italy Spain France US
+```
+
+![screenshot](screenshots/screen3.png)
+
+```shell
+./covid_19_plot.py --split-by-state Australia Switzerland
+```
+
+![screenshot](screenshots/screen4.png)

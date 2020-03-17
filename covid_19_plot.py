@@ -7,6 +7,7 @@ import datetime
 import glob
 import os
 import sys
+from bisect import bisect_left
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -18,6 +19,7 @@ CSV_PATHS = {
     "deaths": f"{CSV_DIR}/time_series_19-covid-Deaths.csv",
     "recovered": f"{CSV_DIR}/time_series_19-covid-Recovered.csv",
 }
+COMPARE_CONSTANTS = [1000, 5000, 10000, 15000, 20000, 25000, 30000, 35000, 45000, 50000]
 
 
 def group(number):
@@ -67,7 +69,13 @@ def parse_arguments(args):
         type=valid_date,
     )
     parser.add_argument(
-        "--no-annotate", help="disable annotation of data points", action="store_true",
+        "-m",
+        "--compare",
+        help=f"match x-axis of multiple countries",
+        action="store_true",
+    )
+    parser.add_argument(
+        "--annotate", help="add annotation to data points", action="store_true",
     )
     parser.add_argument(
         "--split-by-state",
@@ -83,6 +91,9 @@ def parse_arguments(args):
         args.confirmed = args.deaths = args.recovered = True
     elif args.confirmed is args.deaths is args.recovered is False:
         args.confirmed = True
+
+    if args.compare and not args.confirmed:
+        raise parser.error("Comparison is only supported based on confirmed cases.")
 
     return args
 
@@ -131,7 +142,8 @@ def get_data(countries, args):
         "Switzerland": {
             "confirmed": [],
             "deaths": [],
-            "recovered": []
+            "recovered": [],
+            "shift": 0,
         },
         ...
     }
@@ -167,6 +179,76 @@ def get_data(countries, args):
     return data
 
 
+def get_shifts(data):
+    shifts = {}
+    compare_points = COMPARE_CONSTANTS
+    max_cases = {"cases": 0, "area": None}
+    for area, area_data in data.items():
+        new_max = max(area_data["confirmed"]["y"])
+        if new_max > max_cases["cases"]:
+            max_cases["cases"] = new_max
+            max_cases["area"] = area
+
+    main_shifts = []
+    for constant in list(compare_points):
+        if constant > max_cases["cases"]:
+            compare_points.remove(constant)
+            continue
+        main_shifts.append(
+            bisect_left(data[max_cases["area"]]["confirmed"]["y"], constant)
+        )
+    for area in data:
+        if area == max_cases["area"]:
+            shifts[area] = 0
+            continue
+
+        area_shifts = []
+        for constant in compare_points:
+            if constant > max(data[area]["confirmed"]["y"]):
+                continue
+            area_shifts.append(bisect_left(data[area]["confirmed"]["y"], constant))
+
+        shift_diffs = [s - main_shifts[ct] for ct, s in enumerate(area_shifts)]
+        if not len(shift_diffs):
+            shifts[area] = 0
+            continue
+        shifts[area] = round(sum(shift_diffs) / len(shift_diffs))
+
+    return shifts
+
+
+def prepare_data(data, args):
+    meta = {}
+
+    first_key = next(iter(data))
+    second_key = next(iter(data[first_key]))
+
+    meta["xticks"] = [i for i in range(len(data[first_key][second_key]["x"]))]
+    meta["xticks_labels"] = [f"d{i}" for i in meta["xticks"]]
+    if not args.compare:
+        meta["xticks"] = data[first_key][second_key]["x"]
+        meta["xticks_labels"] = [date.strftime("%Y-%m-%d") for date in meta["xticks"]]
+
+    if args.compare:
+        shifts = get_shifts(data)
+        for area, area_data in data.items():
+            for category, area_category_data in area_data.items():
+                x_axis = [i for i in range(len(area_category_data["x"]))]
+                orig_len = len(area_category_data["x"])
+                if shifts[area] > 0:
+                    data[area][category]["x"] = x_axis[: orig_len - shifts[area]]
+                    data[area][category]["y"] = area_category_data["y"][shifts[area] :]
+                elif shifts[area] < 0:
+                    data[area][category]["x"] = x_axis[shifts[area] :]
+                    data[area][category]["y"] = area_category_data["y"][
+                        : orig_len - shifts[area]
+                    ]
+                elif shifts[area] == 0:
+                    data[area][category]["x"] = x_axis
+
+    return data, meta
+
+
 def get_countries():
     os.chdir(f"{DIR_PATH}/COVID-19/csse_covid_19_data/csse_covid_19_daily_reports")
 
@@ -197,7 +279,7 @@ def setup_plot(args):
     plt.ylabel("Cases", fontdict=font)
 
 
-def plot(data, args):
+def plot(data, meta, args):
     def y_ticks():
         yticks = plt.yticks()
         new_diff = (yticks[0][1] - yticks[0][0]) / 4
@@ -210,31 +292,32 @@ def plot(data, args):
 
     setup_plot(args)
 
-    first_key = next(iter(data))
-    second_key = next(iter(data[first_key]))
-    x = data[first_key][second_key]["x"]
-    plt.xticks(x, labels=[date.strftime("%Y-%m-%d") for date in x], rotation=70)
+    plt.xticks(meta["xticks"], labels=meta["xticks_labels"], rotation=70)
 
     legend = []
     plots = []
     linestyle = {"confirmed": "solid", "deaths": "dashed", "recovered": "dotted"}
+
     for area, area_data in data.items():
         color = None
-        for category, data in area_data.items():
+        for category, area_category_data in area_data.items():
+            if category == "shift":
+                continue
+
             plots.append(
                 plt.plot(
-                    data["x"],
-                    data["y"],
+                    area_category_data["x"],
+                    area_category_data["y"],
                     color=color,
                     linestyle=linestyle[category],
                     marker=".",
                 )
             )
-            if not args.no_annotate:
-                for ct, i in enumerate(data["y"]):
+            if args.annotate:
+                for ct, i in enumerate(area_category_data["y"]):
                     plt.annotate(
                         group(i),
-                        (data["x"][ct], i),
+                        (area_category_data["x"][ct], i),
                         bbox=dict(facecolor="white", alpha=0.30),
                     )
             color = plots[-1][0].get_color()
@@ -243,7 +326,7 @@ def plot(data, args):
     y_ticks()
 
     plt.grid()
-    plt.legend(legend)
+    plt.legend(legend, loc="upper left")
     return plots
 
 
@@ -256,7 +339,9 @@ def main():
 
     data = get_data(args.countries, args)
 
-    plot(data, args)
+    data, meta = prepare_data(data, args)
+
+    plot(data, meta, args)
     try:
         plt.show()
     except KeyboardInterrupt:
