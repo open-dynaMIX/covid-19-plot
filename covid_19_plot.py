@@ -233,7 +233,7 @@ def plot(data, args):
                 for ct, i in enumerate(data["y"]):
                     plt.annotate(
                         group(i),
-                        (data["x"][ct], i - 800),
+                        (data["x"][ct], i),
                         bbox=dict(facecolor="white", alpha=0.30),
                     )
             color = plots[-1][0].get_color()
