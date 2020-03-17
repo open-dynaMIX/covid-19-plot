@@ -66,6 +66,9 @@ def parse_arguments(args):
         type=valid_date,
     )
     parser.add_argument(
+        "--no-annotate", help="disable annotation of data points", action="store_true",
+    )
+    parser.add_argument(
         "--split-by-state",
         action="store_true",
         help="show graph for each province/state",
@@ -218,9 +221,20 @@ def plot(data, args):
         for category, data in area_data.items():
             plots.append(
                 plt.plot(
-                    data["x"], data["y"], color=color, linestyle=linestyle[category],
+                    data["x"],
+                    data["y"],
+                    color=color,
+                    linestyle=linestyle[category],
+                    marker=".",
                 )
             )
+            if not args.no_annotate:
+                for ct, i in enumerate(data["y"]):
+                    plt.annotate(
+                        group(i),
+                        (data["x"][ct], i - 800),
+                        bbox=dict(facecolor="white", alpha=0.30),
+                    )
             color = plots[-1][0].get_color()
             legend.append(f"{area} - {category}")
 

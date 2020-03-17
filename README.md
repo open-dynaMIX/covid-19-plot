@@ -41,7 +41,7 @@ pip install PyQt5
 ## Usage
 
 ```
-usage: covid_19_plot.py [-h] [-l] [-c] [-d] [-r] [-a] [-s STARTDATE] [--split-by-state] [--list-countries] [countries [countries ...]]
+usage: covid_19_plot.py [-h] [-l] [-c] [-d] [-r] [-a] [-s STARTDATE] [--no-annotate] [--split-by-state] [--list-countries] [countries [countries ...]]
 
 positional arguments:
   countries             List of countries/regions (defaults to Switzerland)
@@ -55,6 +55,7 @@ optional arguments:
   -a, --all             include all
   -s STARTDATE, --startdate STARTDATE
                         plot data past given date - format YYYY-MM-DD
+  --no-annotate         disable annotation of data points
   --split-by-state      show graph for each province/state
   --list-countries      list available countries/regions
 ```
