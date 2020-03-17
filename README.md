@@ -55,7 +55,7 @@ optional arguments:
   -a, --all             include all
   -s STARTDATE, --startdate STARTDATE
                         plot data past given date - format YYYY-MM-DD
-  -m, --compare         match x-axis of multiple countries (matches by closest data point to 1000)
+  -m, --compare         match x-axis of multiple countries
   --annotate            add annotation to data points
   --split-by-state      show graph for each province/state
   --list-countries      list available countries/regions
