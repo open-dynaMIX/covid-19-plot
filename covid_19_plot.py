@@ -12,10 +12,11 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 DIR_PATH = os.path.dirname(os.path.realpath(__file__))
+CSV_DIR = f"{DIR_PATH}/COVID-19/csse_covid_19_data/csse_covid_19_time_series"
 CSV_PATHS = {
-    "confirmed": f"{DIR_PATH}/COVID-19/csse_covid_19_data/csse_covid_19_time_series/time_series_19-covid-Confirmed.csv",
-    "deaths": f"{DIR_PATH}/COVID-19/csse_covid_19_data/csse_covid_19_time_series/time_series_19-covid-Deaths.csv",
-    "recovered": f"{DIR_PATH}/COVID-19/csse_covid_19_data/csse_covid_19_time_series/time_series_19-covid-Recovered.csv",
+    "confirmed": f"{CSV_DIR}/time_series_19-covid-Confirmed.csv",
+    "deaths": f"{CSV_DIR}/time_series_19-covid-Deaths.csv",
+    "recovered": f"{CSV_DIR}/time_series_19-covid-Recovered.csv",
 }
 
 
@@ -64,6 +65,9 @@ def parse_arguments(args):
         "--startdate",
         help="plot data past given date - format YYYY-MM-DD",
         type=valid_date,
+    )
+    parser.add_argument(
+        "--no-annotate", help="disable annotation of data points", action="store_true",
     )
     parser.add_argument(
         "--split-by-state",
@@ -218,9 +222,20 @@ def plot(data, args):
         for category, data in area_data.items():
             plots.append(
                 plt.plot(
-                    data["x"], data["y"], color=color, linestyle=linestyle[category],
+                    data["x"],
+                    data["y"],
+                    color=color,
+                    linestyle=linestyle[category],
+                    marker=".",
                 )
             )
+            if not args.no_annotate:
+                for ct, i in enumerate(data["y"]):
+                    plt.annotate(
+                        group(i),
+                        (data["x"][ct], i - 800),
+                        bbox=dict(facecolor="white", alpha=0.30),
+                    )
             color = plots[-1][0].get_color()
             legend.append(f"{area} - {category}")
 
