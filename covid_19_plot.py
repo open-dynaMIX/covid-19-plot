@@ -12,10 +12,11 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 DIR_PATH = os.path.dirname(os.path.realpath(__file__))
+CSV_DIR = f"{DIR_PATH}/COVID-19/csse_covid_19_data/csse_covid_19_time_series"
 CSV_PATHS = {
-    "confirmed": f"{DIR_PATH}/COVID-19/csse_covid_19_data/csse_covid_19_time_series/time_series_19-covid-Confirmed.csv",
-    "deaths": f"{DIR_PATH}/COVID-19/csse_covid_19_data/csse_covid_19_time_series/time_series_19-covid-Deaths.csv",
-    "recovered": f"{DIR_PATH}/COVID-19/csse_covid_19_data/csse_covid_19_time_series/time_series_19-covid-Recovered.csv",
+    "confirmed": f"{CSV_DIR}/time_series_19-covid-Confirmed.csv",
+    "deaths": f"{CSV_DIR}/time_series_19-covid-Deaths.csv",
+    "recovered": f"{CSV_DIR}/time_series_19-covid-Recovered.csv",
 }
 
 
