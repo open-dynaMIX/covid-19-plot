@@ -109,7 +109,8 @@ def get_data_from_file(file, countries, split_by_state, startdate):
                     x.append(date)
                     y.append(int(count))
                 if split_by_state:
-                    area = f"{country} - {state}"
+                    if state:
+                        area = f"{country} - {state}"
                 if area not in data:
                     data[area] = {}
                 if not data[area] or split_by_state:
