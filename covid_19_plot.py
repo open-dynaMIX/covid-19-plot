@@ -198,12 +198,13 @@ def get_shifts(data):
             shifts[area] = 0
             continue
 
-        area_shift = 0
         if max(data[area]["confirmed"]["y"]) >= COMPARE_CONSTANT:
             area_shift = bisect_left(data[area]["confirmed"]["y"], COMPARE_CONSTANT)
+            shift_diff = area_shift - main_shift
+            shifts[area] = shift_diff
+            continue
 
-        shift_diff = area_shift - main_shift
-        shifts[area] = shift_diff
+        shifts[area] = 0
 
     return shifts
 
@@ -292,8 +293,6 @@ def plot(data, meta, args):
     for area, area_data in data.items():
         color = None
         for category, area_category_data in area_data.items():
-            if category == "shift":
-                continue
 
             plots.append(
                 plt.plot(
