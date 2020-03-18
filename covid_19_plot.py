@@ -19,7 +19,7 @@ CSV_PATHS = {
     "deaths": f"{CSV_DIR}/time_series_19-covid-Deaths.csv",
     "recovered": f"{CSV_DIR}/time_series_19-covid-Recovered.csv",
 }
-COMPARE_CONSTANTS = [1000, 5000, 10000, 15000, 20000, 25000, 30000, 35000, 45000, 50000]
+COMPARE_CONSTANT = 100
 
 
 def group(number):
@@ -71,7 +71,7 @@ def parse_arguments(args):
     parser.add_argument(
         "-m",
         "--compare",
-        help=f"match x-axis of multiple countries",
+        help=f"match x-axis of multiple countries (matches the data points closest to 100 cases",
         action="store_true",
     )
     parser.add_argument(
@@ -181,7 +181,6 @@ def get_data(countries, args):
 
 def get_shifts(data):
     shifts = {}
-    compare_points = COMPARE_CONSTANTS
     max_cases = {"cases": 0, "area": None}
     for area, area_data in data.items():
         new_max = max(area_data["confirmed"]["y"])
@@ -189,30 +188,22 @@ def get_shifts(data):
             max_cases["cases"] = new_max
             max_cases["area"] = area
 
-    main_shifts = []
-    for constant in list(compare_points):
-        if constant > max_cases["cases"]:
-            compare_points.remove(constant)
-            continue
-        main_shifts.append(
-            bisect_left(data[max_cases["area"]]["confirmed"]["y"], constant)
+    main_shift = 0
+    if max_cases["cases"] >= COMPARE_CONSTANT:
+        main_shift = bisect_left(
+            data[max_cases["area"]]["confirmed"]["y"], COMPARE_CONSTANT
         )
     for area in data:
         if area == max_cases["area"]:
             shifts[area] = 0
             continue
 
-        area_shifts = []
-        for constant in compare_points:
-            if constant > max(data[area]["confirmed"]["y"]):
-                continue
-            area_shifts.append(bisect_left(data[area]["confirmed"]["y"], constant))
+        area_shift = 0
+        if max(data[area]["confirmed"]["y"]) >= COMPARE_CONSTANT:
+            area_shift = bisect_left(data[area]["confirmed"]["y"], COMPARE_CONSTANT)
 
-        shift_diffs = [s - main_shifts[ct] for ct, s in enumerate(area_shifts)]
-        if not len(shift_diffs):
-            shifts[area] = 0
-            continue
-        shifts[area] = round(sum(shift_diffs) / len(shift_diffs))
+        shift_diff = area_shift - main_shift
+        shifts[area] = shift_diff
 
     return shifts
 
