@@ -181,30 +181,26 @@ def get_data(countries, args):
 
 def get_shifts(data):
     shifts = {}
-    max_cases = {"cases": 0, "area": None}
-    for area, area_data in data.items():
-        new_max = max(area_data["confirmed"]["y"])
-        if new_max > max_cases["cases"]:
-            max_cases["cases"] = new_max
-            max_cases["area"] = area
 
-    main_shift = 0
-    if max_cases["cases"] >= COMPARE_CONSTANT:
-        main_shift = bisect_left(
-            data[max_cases["area"]]["confirmed"]["y"], COMPARE_CONSTANT
-        )
+    first_at_100 = {"name": "", "index": None}
+    for area, area_data in data.items():
+        new_index = bisect_left(area_data["confirmed"]["y"], COMPARE_CONSTANT)
+        if first_at_100["index"] is None or new_index < first_at_100["index"]:
+            first_at_100["name"] = area
+            first_at_100["index"] = new_index
+
     for area in data:
-        if area == max_cases["area"]:
+        if area == first_at_100["name"]:
             shifts[area] = 0
             continue
 
-        if max(data[area]["confirmed"]["y"]) >= COMPARE_CONSTANT:
-            area_shift = bisect_left(data[area]["confirmed"]["y"], COMPARE_CONSTANT)
-            shift_diff = area_shift - main_shift
-            shifts[area] = shift_diff
+        if max(data[area]["confirmed"]["y"]) < COMPARE_CONSTANT:
+            shifts[area] = 0
             continue
 
-        shifts[area] = 0
+        area_shift = bisect_left(data[area]["confirmed"]["y"], COMPARE_CONSTANT)
+        shift_diff = area_shift - first_at_100["index"]
+        shifts[area] = shift_diff
 
     return shifts
 
@@ -220,23 +216,23 @@ def prepare_data(data, args):
     if not args.compare:
         meta["xticks"] = data[first_key][second_key]["x"]
         meta["xticks_labels"] = [date.strftime("%Y-%m-%d") for date in meta["xticks"]]
+        return data, meta
 
-    if args.compare:
-        shifts = get_shifts(data)
-        for area, area_data in data.items():
-            for category, area_category_data in area_data.items():
-                x_axis = [i for i in range(len(area_category_data["x"]))]
-                orig_len = len(area_category_data["x"])
-                if shifts[area] > 0:
-                    data[area][category]["x"] = x_axis[: orig_len - shifts[area]]
-                    data[area][category]["y"] = area_category_data["y"][shifts[area] :]
-                elif shifts[area] < 0:
-                    data[area][category]["x"] = x_axis[shifts[area] :]
-                    data[area][category]["y"] = area_category_data["y"][
-                        : orig_len - shifts[area]
-                    ]
-                elif shifts[area] == 0:
-                    data[area][category]["x"] = x_axis
+    shifts = get_shifts(data)
+    for area, area_data in data.items():
+        for category, area_category_data in area_data.items():
+            x_axis = [i for i in range(len(area_category_data["x"]))]
+            orig_len = len(area_category_data["x"])
+            if shifts[area] > 0:
+                data[area][category]["x"] = x_axis[: orig_len - shifts[area]]
+                data[area][category]["y"] = area_category_data["y"][shifts[area] :]
+            elif shifts[area] < 0:
+                data[area][category]["x"] = x_axis[shifts[area] :]
+                data[area][category]["y"] = area_category_data["y"][
+                    : orig_len - shifts[area]
+                ]
+            elif shifts[area] == 0:
+                data[area][category]["x"] = x_axis
 
     return data, meta
 
