@@ -154,7 +154,7 @@ def get_data(countries, args):
         for area, d in sdata.items():
             if area not in data:
                 data[area] = {}
-            data[area][key] = sdata[area]
+            data[area][key] = d
 
     data = {}
 
@@ -324,6 +324,12 @@ def main():
         sys.exit(0)
 
     data = get_data(args.countries, args)
+
+    if not data:
+        print(
+            f"No data found for countries: {', '.join(args.countries)}", file=sys.stderr
+        )
+        sys.exit(1)
 
     data, meta = prepare_data(data, args)
 
