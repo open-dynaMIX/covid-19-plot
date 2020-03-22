@@ -102,4 +102,4 @@ optional arguments:
 ./covid_19_plot.py --split-by-state Australia Switzerland
 ```
 
-![screenshot](screenshots/screen5.png)
+![screenshot](screenshots/screen5.png#1)
