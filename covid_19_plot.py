@@ -19,7 +19,15 @@ CSV_PATHS = {
     "deaths": f"{CSV_DIR}/time_series_19-covid-Deaths.csv",
     "recovered": f"{CSV_DIR}/time_series_19-covid-Recovered.csv",
 }
+POP_CSV = f"{DIR_PATH}/data/population.csv"
 COMPARE_CONSTANT = 100
+
+POPULATION = {}
+
+with open(POP_CSV) as csvfile:
+    reader = csv.DictReader(csvfile)
+    for row in reader:
+        POPULATION[row["Country"]] = int(row["Value"])
 
 
 def group(number):
@@ -83,6 +91,12 @@ def parse_arguments(args):
         help="show graph for each province/state",
     )
     parser.add_argument(
+        "-e",
+        "--relative",
+        action="store_true",
+        help="show cases per 100'000 residents (only supported for some countries)",
+    )
+    parser.add_argument(
         "--list-countries", action="store_true", help="list available countries/regions"
     )
     args = parser.parse_args(args)
@@ -95,16 +109,19 @@ def parse_arguments(args):
     if args.compare and not args.confirmed:
         raise parser.error("Comparison is only supported based on confirmed cases.")
 
+    if args.relative and args.split_by_state:
+        raise parser.error("--split-by-state with --relative is not supported.")
+
     return args
 
 
-def get_data_from_file(file, countries, split_by_state, startdate):
+def get_data_from_file(file, args):
     data = {}
     with open(file) as csvfile:
         reader = csv.DictReader(csvfile)
         for row in reader:
             area = row["Country/Region"].strip()
-            if area in countries:
+            if area in args.countries:
                 state = row.pop("Province/State").strip()
                 country = row.pop("Country/Region").strip()
                 row.pop("Lat")
@@ -115,16 +132,21 @@ def get_data_from_file(file, countries, split_by_state, startdate):
                     # can't use strptime with non-padded month
                     month, day, year = date.split("/")
                     date = datetime.date(int(f"20{year}"), int(month), int(day))
-                    if startdate and date < startdate:
+                    if args.startdate and date < args.startdate:
                         continue
                     x.append(date)
-                    y.append(int(count))
-                if split_by_state:
+                    y_value = int(count)
+                    if args.relative:
+                        if area not in POPULATION:
+                            raise Exception(f'"{area}" not found in population.csv!')
+                        y_value = y_value / (POPULATION[area] / 100000)
+                    y.append(y_value)
+                if args.split_by_state:
                     if state:
                         area = f"{country} - {state}"
                 if area not in data:
                     data[area] = {}
-                if not data[area] or split_by_state:
+                if not data[area] or args.split_by_state:
                     data[area] = {"x": x, "y": y}
                     continue
                 for ct, i in enumerate(y):
@@ -132,7 +154,7 @@ def get_data_from_file(file, countries, split_by_state, startdate):
     return data
 
 
-def get_data(countries, args):
+def get_data(args):
     """
     Collects data from CSVs
 
@@ -159,21 +181,15 @@ def get_data(countries, args):
     data = {}
 
     if args.confirmed:
-        sub_data = get_data_from_file(
-            CSV_PATHS["confirmed"], countries, args.split_by_state, args.startdate
-        )
+        sub_data = get_data_from_file(CSV_PATHS["confirmed"], args)
         add_to_data(sub_data, "confirmed")
 
     if args.deaths:
-        sub_data = get_data_from_file(
-            CSV_PATHS["deaths"], countries, args.split_by_state, args.startdate
-        )
+        sub_data = get_data_from_file(CSV_PATHS["deaths"], args)
         add_to_data(sub_data, "deaths")
 
     if args.recovered:
-        sub_data = get_data_from_file(
-            CSV_PATHS["recovered"], countries, args.split_by_state, args.startdate
-        )
+        sub_data = get_data_from_file(CSV_PATHS["recovered"], args)
         add_to_data(sub_data, "recovered")
 
     return data
@@ -264,7 +280,10 @@ def setup_plot(args):
         plt.title("Logarithmic", fontdict=font)
 
     plt.xlabel("Days", fontdict=font)
-    plt.ylabel("Cases", fontdict=font)
+    cases_suffix = ""
+    if args.relative:
+        cases_suffix = " per 100'000"
+    plt.ylabel(f"Cases{cases_suffix}", fontdict=font)
 
 
 def plot(data, meta, args):
@@ -302,7 +321,7 @@ def plot(data, meta, args):
             if args.annotate:
                 for ct, i in enumerate(area_category_data["y"]):
                     plt.annotate(
-                        group(i),
+                        group(round(i)),
                         (area_category_data["x"][ct], i),
                         bbox=dict(facecolor="white", alpha=0.30),
                     )
@@ -323,7 +342,7 @@ def main():
         print("\n".join(get_countries()))
         sys.exit(0)
 
-    data = get_data(args.countries, args)
+    data = get_data(args)
 
     if not data:
         print(
