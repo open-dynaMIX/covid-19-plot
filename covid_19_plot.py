@@ -31,12 +31,17 @@ with open(POP_CSV) as csvfile:
 
 
 def group(number):
+    fraction = ""
+    parts = str(number).split(".")
+    if len(parts) == 2:
+        fraction = f".{parts[1]}"
     s = "%d" % number
     groups = []
     while s and s[-1].isdigit():
         groups.append(s[-3:])
         s = s[:-3]
-    return s + "'".join(reversed(groups))
+    groups = "'".join(reversed(groups))
+    return f"{s}{groups}{fraction}"
 
 
 def valid_date(s):
@@ -321,7 +326,7 @@ def plot(data, meta, args):
             if args.annotate:
                 for ct, i in enumerate(area_category_data["y"]):
                     plt.annotate(
-                        group(round(i)),
+                        group(round(i, 2)),
                         (area_category_data["x"][ct], i),
                         bbox=dict(facecolor="white", alpha=0.30),
                     )
