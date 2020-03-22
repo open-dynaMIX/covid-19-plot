@@ -96,10 +96,10 @@ optional arguments:
 ./covid_19_plot.py --annotate --startdate 2020-02-20 Switzerland Italy Spain France US
 ```
 
-![screenshot](screenshots/screen3.png)
+![screenshot](screenshots/screen4.png)
 
 ```shell
 ./covid_19_plot.py --split-by-state Australia Switzerland
 ```
 
-![screenshot](screenshots/screen4.png)
+![screenshot](screenshots/screen5.png)
