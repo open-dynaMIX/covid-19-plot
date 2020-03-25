@@ -41,8 +41,8 @@ pip install PyQt5
 ## Usage
 
 ```
-usage: covid_19_plot.py [-h] [-l] [-c] [-d] [-r] [-a] [-s STARTDATE] [-m] [--annotate]
-                        [--split-by-state] [-e] [--list-countries]
+usage: covid_19_plot.py [-h] [-l] [-c] [-d] [-a] [-s STARTDATE] [-m] [--annotate] [--split-by-state]
+                        [-e] [--list-countries]
                         [countries [countries ...]]
 
 positional arguments:
@@ -53,11 +53,11 @@ optional arguments:
   -l, --logarithmic     use logarithmic scale
   -c, --confirmed       include confirmed (default)
   -d, --deaths          include deaths
-  -r, --recovered       include recovered
   -a, --all             include all
   -s STARTDATE, --startdate STARTDATE
                         plot data past given date - format YYYY-MM-DD
-  -m, --compare         match x-axis of multiple countries (matches the data points closest to 100 cases
+  -m, --compare         match x-axis of multiple countries (matches the data points closest to 100
+                        cases
   --annotate            add annotation to data points
   --split-by-state      show graph for each province/state
   -e, --relative        show cases per 100'000 residents (only supported for some countries)
