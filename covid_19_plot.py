@@ -17,7 +17,7 @@ CSV_DIR = f"{DIR_PATH}/COVID-19/csse_covid_19_data/csse_covid_19_time_series"
 CSV_PATHS = {
     "confirmed": f"{CSV_DIR}/time_series_covid19_confirmed_global.csv",
     "deaths": f"{CSV_DIR}/time_series_covid19_deaths_global.csv",
-    # "recovered": f"{CSV_DIR}/time_series_19-covid-Recovered.csv",
+    "recovered": f"{CSV_DIR}/time_series_covid19_recovered_global.csv",
 }
 POP_CSV = f"{DIR_PATH}/data/population.csv"
 COMPARE_CONSTANT = 100
@@ -71,9 +71,9 @@ def parse_arguments(args):
         "-c", "--confirmed", action="store_true", help="include confirmed (default)",
     )
     parser.add_argument("-d", "--deaths", action="store_true", help="include deaths")
-    # parser.add_argument(
-    #     "-r", "--recovered", action="store_true", help="include recovered"
-    # )
+    parser.add_argument(
+        "-r", "--recovered", action="store_true", help="include recovered"
+    )
     parser.add_argument("-a", "--all", action="store_true", help="include all")
     parser.add_argument(
         "-s",
@@ -106,14 +106,9 @@ def parse_arguments(args):
     )
     args = parser.parse_args(args)
 
-    # if args.all:
-    #     args.confirmed = args.deaths = args.recovered = True
-    # elif args.confirmed is args.deaths is args.recovered is False:
-    #     args.confirmed = True
-
     if args.all:
-        args.confirmed = args.deaths = True
-    elif args.confirmed is args.deaths is False:
+        args.confirmed = args.deaths = args.recovered = True
+    elif args.confirmed is args.deaths is args.recovered is False:
         args.confirmed = True
 
     if args.compare and not args.confirmed:
@@ -174,7 +169,7 @@ def get_data(args):
         "Switzerland": {
             "confirmed": [],
             "deaths": [],
-            # "recovered": [],
+            "recovered": [],
             "shift": 0,
         },
         ...
@@ -198,9 +193,9 @@ def get_data(args):
         sub_data = get_data_from_file(CSV_PATHS["deaths"], args)
         add_to_data(sub_data, "deaths")
 
-    # if args.recovered:
-    #     sub_data = get_data_from_file(CSV_PATHS["recovered"], args)
-    #     add_to_data(sub_data, "recovered")
+    if args.recovered:
+        sub_data = get_data_from_file(CSV_PATHS["recovered"], args)
+        add_to_data(sub_data, "recovered")
 
     return data
 
@@ -316,7 +311,7 @@ def plot(data, meta, args):
     linestyle = {
         "confirmed": "solid",
         "deaths": "dashed",
-        # "recovered": "dotted",
+        "recovered": "dotted",
     }
 
     for area, area_data in data.items():
